@@ -10,6 +10,7 @@ This repository handles the core RESTful APIs, database operations, business log
 
 - **Runtime**: [Node.js](https://nodejs.org/) (v16+)
 - **Framework**: [Express.js](https://expressjs.com/) (v5)
+- **Database**: [MongoDB](https://www.mongodb.com/) + [Mongoose](https://mongoosejs.com/)
 - **Language**: JavaScript (ES6+)
 - **Environment Management**: `dotenv`
 - **CORS Management**: `cors`
@@ -23,18 +24,19 @@ This repository handles the core RESTful APIs, database operations, business log
 scrapconnect-backend/
 ├── src/
 │   ├── config/
+│   │   ├── db.js              # MongoDB Mongoose connection setup
 │   │   └── env.js             # Environment variable configuration
 │   ├── controllers/
-│   │   └── health.controller.js  # Controller logic for system health checks
+│   │   └── health.controller.js  # Controller logic for health checks
 │   ├── middleware/
 │   │   └── error.middleware.js   # 404 & Centralized error handling
-│   ├── models/                # Database models (to be added)
+│   ├── models/                # Database models (to be added in later steps)
 │   ├── routes/
 │   │   ├── health.routes.js   # Health check route definitions
 │   │   └── index.js           # API route router aggregator
-│   ├── services/              # Business logic services (to be added)
+│   ├── services/              # Business logic services (to be added in later steps)
 │   ├── app.js                 # Express application setup
-│   └── server.js              # Server entry point & listener
+│   └── server.js              # Server entry point & DB initialization
 ├── .env                       # Environment variables (git-ignored)
 ├── .env.example               # Environment variables template
 ├── .gitignore                 # Files excluded from version control
@@ -44,11 +46,35 @@ scrapconnect-backend/
 
 ---
 
+## 🍃 MongoDB & Database Setup
+
+### Local MongoDB Setup
+If running MongoDB locally, start the local MongoDB service on `localhost:27017`:
+```env
+MONGO_URI=mongodb://127.0.0.1:27017/scrapconnect
+```
+
+### MongoDB Atlas Setup (Cloud Database)
+1. Sign up or log into [MongoDB Atlas](https://www.mongodb.com/cloud/atlas).
+2. Create a new Cluster (Free M0 Shared Cluster).
+3. Under **Database Access**, create a database user with a username and password.
+4. Under **Network Access**, add IP address `0.0.0.0/0` (or your current IP) to the IP access list.
+5. Click **Connect** on your cluster, select **Drivers (Node.js)**, and copy the connection string.
+6. Replace `<username>` and `<password>` in the connection string and paste it into your local `.env` file as `MONGO_URI`:
+   ```env
+   MONGO_URI=mongodb+srv://<username>:<password>@cluster0.example.mongodb.net/scrapconnect?retryWrites=true&w=majority
+   ```
+
+> [!WARNING]
+> Do NOT commit your actual `.env` file or MongoDB connection credentials to Git.
+
+---
+
 ## 🚀 Getting Started
 
 ### Prerequisites
 
-Ensure you have [Node.js](https://nodejs.org/) (v16 or higher) and `npm` installed on your machine.
+Ensure you have [Node.js](https://nodejs.org/) (v16 or higher) and `npm` installed:
 
 ```bash
 node -v
@@ -59,9 +85,8 @@ npm -v
 
 ### Installation
 
-1. Clone the repository:
+1. Navigate to the backend directory:
    ```bash
-   git clone https://github.com/muzammilpk/scrapconnect-backend.git
    cd scrapconnect-backend
    ```
 
@@ -75,6 +100,7 @@ npm -v
    ```bash
    cp .env.example .env
    ```
+   Set `PORT` and your `MONGO_URI` in `.env`.
 
 ---
 
@@ -92,17 +118,17 @@ npm run dev
 npm start
 ```
 
-Default server port is **`5000`**. The server will be accessible at `http://localhost:5000`.
+Default server port is **`5000`**. The server will connect to MongoDB first, then start listening at `http://localhost:5000`.
 
 ---
 
-## 📡 API Endpoints
+## 📡 Verification & Health Check
 
-### Health Check
+### Health Check Endpoint
 
 - **Endpoint**: `GET /api/health`
 - **Access**: Public
-- **Description**: Verifies that the backend server is online and operational.
+- **Description**: Verifies that the backend server is online and checks MongoDB connection status.
 
 #### Example Request
 
@@ -115,13 +141,18 @@ curl http://localhost:5000/api/health
 ```json
 {
   "success": true,
-  "message": "ScrapConnect backend is running"
+  "message": "ScrapConnect backend is running",
+  "database": {
+    "status": "connected",
+    "connected": true
+  },
+  "timestamp": "2026-08-30T23:41:00.000Z"
 }
 ```
 
 ---
 
-## 🔗 GitHub Repository
+## 🔗 GitHub Repositories
 
 - **Backend Repository**: [https://github.com/muzammilpk/scrapconnect-backend](https://github.com/muzammilpk/scrapconnect-backend)
 - **Frontend Repository**: [https://github.com/muzammilpk/scrapconnect-frontend](https://github.com/muzammilpk/scrapconnect-frontend)
