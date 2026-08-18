@@ -93,6 +93,7 @@ const registerUser = async (req, res) => {
         profileImage: user.profileImage,
         address: user.address,
         location: user.location,
+        serviceRegions: user.serviceRegions || [],
         createdAt: user.createdAt,
       },
     });
@@ -154,6 +155,7 @@ const loginUser = async (req, res) => {
         profileImage: user.profileImage,
         address: user.address,
         location: user.location,
+        serviceRegions: user.serviceRegions || [],
         createdAt: user.createdAt,
       },
     });
