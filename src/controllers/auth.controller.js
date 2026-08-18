@@ -85,11 +85,14 @@ const registerUser = async (req, res) => {
       token,
       user: {
         id: user._id,
+        _id: user._id,
         name: user.name,
         email: user.email,
         mobileNumber: user.mobileNumber,
         role: user.role,
-        profile: user.profile,
+        profileImage: user.profileImage,
+        address: user.address,
+        location: user.location,
         createdAt: user.createdAt,
       },
     });
@@ -143,11 +146,14 @@ const loginUser = async (req, res) => {
       token,
       user: {
         id: user._id,
+        _id: user._id,
         name: user.name,
         email: user.email,
         mobileNumber: user.mobileNumber,
         role: user.role,
-        profile: user.profile,
+        profileImage: user.profileImage,
+        address: user.address,
+        location: user.location,
         createdAt: user.createdAt,
       },
     });

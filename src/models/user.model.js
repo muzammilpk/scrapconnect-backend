@@ -41,12 +41,23 @@ const userSchema = new mongoose.Schema(
       },
       required: [true, 'Please specify user role (buyer or seller)'],
     },
-    profile: {
-      address: { type: String, default: '' },
-      city: { type: String, default: '' },
-      state: { type: String, default: '' },
-      pincode: { type: String, default: '' },
-      avatar: { type: String, default: '' },
+    profileImage: {
+      type: String,
+      default: '',
+    },
+    address: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    location: {
+      state: { type: String, default: '', trim: true },
+      district: { type: String, default: '', trim: true },
+      city: { type: String, default: '', trim: true },
+      area: { type: String, default: '', trim: true },
+      pincode: { type: String, default: '', trim: true },
+      latitude: { type: Number, default: null },
+      longitude: { type: Number, default: null },
     },
   },
   {

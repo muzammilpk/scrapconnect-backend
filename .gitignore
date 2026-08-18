@@ -17,6 +17,6 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
-# IDE Files
-.vscode/
-.idea/
+# Scratch
+scratch/
+
