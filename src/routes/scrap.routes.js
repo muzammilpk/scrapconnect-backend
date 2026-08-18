@@ -1,0 +1,30 @@
+const express = require('express');
+const {
+  uploadImages,
+  createScrap,
+  getMyScrapListings,
+  getScrapById,
+  updateScrap,
+  deleteScrap,
+} = require('../controllers/scrap.controller');
+const { protect, authorize } = require('../middleware/auth.middleware');
+const upload = require('../middleware/upload.middleware');
+
+const router = express.Router();
+
+// All scrap endpoints require authentication
+router.use(protect);
+
+// Seller-only endpoints
+router.post('/upload', authorize('seller'), upload.array('images', 5), uploadImages);
+router.post('/', authorize('seller'), createScrap);
+router.get('/my-listings', authorize('seller'), getMyScrapListings);
+
+// Individual scrap listing operations
+router
+  .route('/:id')
+  .get(getScrapById)
+  .put(authorize('seller'), updateScrap)
+  .delete(authorize('seller'), deleteScrap);
+
+module.exports = router;
