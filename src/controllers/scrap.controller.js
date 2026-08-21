@@ -373,10 +373,114 @@ const deleteScrap = async (req, res) => {
   }
 };
 
+/**
+ * @desc   Get all available scrap listings (Marketplace query with search, filter, sort, pagination)
+ * @route  GET /api/scraps
+ * @access Private
+ */
+const getAllScraps = async (req, res) => {
+  try {
+    const {
+      search,
+      category,
+      state,
+      district,
+      city,
+      area,
+      pincode,
+      status,
+      sort,
+      page = 1,
+      limit = 12,
+    } = req.query;
+
+    // 1. Build Query Object (Default to status: 'available' unless specified)
+    const query = {
+      status: status ? status : 'available',
+    };
+
+    // Keyword Search (across title, category, description)
+    if (search && search.trim()) {
+      const searchRegex = new RegExp(search.trim(), 'i');
+      query.$or = [
+        { title: searchRegex },
+        { category: searchRegex },
+        { description: searchRegex },
+      ];
+    }
+
+    // Category filter
+    if (category && category.trim()) {
+      query.category = category.trim();
+    }
+
+    // Location filters
+    if (state && state.trim()) {
+      query['location.state'] = new RegExp(`^${state.trim()}$`, 'i');
+    }
+    if (district && district.trim()) {
+      query['location.district'] = new RegExp(`^${district.trim()}$`, 'i');
+    }
+    if (city && city.trim()) {
+      query['location.city'] = new RegExp(`^${city.trim()}$`, 'i');
+    }
+    if (area && area.trim()) {
+      query['location.area'] = new RegExp(area.trim(), 'i');
+    }
+    if (pincode && pincode.trim()) {
+      query['location.pincode'] = pincode.trim();
+    }
+
+    // 2. Sorting
+    let sortOptions = { createdAt: -1 }; // Default: Newest first
+    if (sort === 'oldest') {
+      sortOptions = { createdAt: 1 };
+    } else if (sort === 'weight_asc') {
+      sortOptions = { estimatedWeight: 1 };
+    } else if (sort === 'weight_desc') {
+      sortOptions = { estimatedWeight: -1 };
+    }
+
+    // 3. Pagination
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(50, Math.max(1, parseInt(limit, 10) || 12));
+    const skip = (pageNum - 1) * limitNum;
+
+    // Execute query and total count in parallel
+    const [scraps, totalListings] = await Promise.all([
+      Scrap.find(query)
+        .sort(sortOptions)
+        .skip(skip)
+        .limit(limitNum)
+        .populate('seller', 'name email mobileNumber profileImage location'),
+      Scrap.countDocuments(query),
+    ]);
+
+    const totalPages = Math.ceil(totalListings / limitNum) || 1;
+
+    res.status(200).json({
+      success: true,
+      count: scraps.length,
+      page: pageNum,
+      limit: limitNum,
+      totalPages,
+      totalListings,
+      scraps,
+    });
+  } catch (error) {
+    console.error('Get all scraps error:', error.message);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Server error retrieving marketplace listings',
+    });
+  }
+};
+
 module.exports = {
   uploadImages,
   createScrap,
   getMyScrapListings,
+  getAllScraps,
   getScrapById,
   updateScrap,
   deleteScrap,

@@ -3,6 +3,7 @@ const {
   uploadImages,
   createScrap,
   getMyScrapListings,
+  getAllScraps,
   getScrapById,
   updateScrap,
   deleteScrap,
@@ -14,6 +15,9 @@ const router = express.Router();
 
 // All scrap endpoints require authentication
 router.use(protect);
+
+// Marketplace query endpoint (GET /api/scraps)
+router.get('/', getAllScraps);
 
 // Seller-only endpoints
 router.post('/upload', authorize('seller'), upload.array('images', 5), uploadImages);
