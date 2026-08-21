@@ -7,6 +7,7 @@ const {
   getScrapById,
   updateScrap,
   deleteScrap,
+  getMatchingBuyersForScrap,
 } = require('../controllers/scrap.controller');
 const { protect, authorize } = require('../middleware/auth.middleware');
 const upload = require('../middleware/upload.middleware');
@@ -23,6 +24,7 @@ router.get('/', getAllScraps);
 router.post('/upload', authorize('seller'), upload.array('images', 5), uploadImages);
 router.post('/', authorize('seller'), createScrap);
 router.get('/my-listings', authorize('seller'), getMyScrapListings);
+router.get('/:id/matching-buyers', authorize('seller'), getMatchingBuyersForScrap);
 
 // Individual scrap listing operations
 router

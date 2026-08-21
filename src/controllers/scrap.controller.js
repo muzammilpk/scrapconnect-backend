@@ -1,6 +1,10 @@
 const mongoose = require('mongoose');
 const { Scrap, scrapCategories } = require('../models/scrap.model');
 const { cloudinary, isCloudinaryConfigured } = require('../config/cloudinary');
+const {
+  findMatchingBuyersForLocation,
+  findMatchingBuyersForScrap,
+} = require('../services/locationMatchingService');
 
 /**
  * Helper to upload buffer to Cloudinary using stream
@@ -153,10 +157,18 @@ const createScrap = async (req, res) => {
       'name email mobileNumber profileImage'
     );
 
+    // Run location matching algorithm to find eligible buyers for this location
+    const matchingBuyers = await findMatchingBuyersForLocation(populatedScrap.location);
+
+    console.log(
+      `📍 [Location Matching] Found ${matchingBuyers.length} matching buyer(s) for Scrap ID: ${scrap._id} in ${populatedScrap.location.city}, ${populatedScrap.location.district}`
+    );
+
     res.status(201).json({
       success: true,
       message: 'Scrap listing published successfully',
       scrap: populatedScrap,
+      matchingBuyerCount: matchingBuyers.length,
     });
   } catch (error) {
     console.error('Create scrap error:', error.message);
@@ -476,6 +488,57 @@ const getAllScraps = async (req, res) => {
   }
 };
 
+/**
+ * @desc   Get matching buyers for a scrap listing based on location & service regions
+ * @route  GET /api/scraps/:id/matching-buyers
+ * @access Private (Seller owner or Admin only)
+ */
+const getMatchingBuyersForScrap = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(404).json({
+        success: false,
+        message: 'Invalid scrap ID format',
+      });
+    }
+
+    const scrap = await Scrap.findById(id).populate('seller', 'name email mobileNumber');
+
+    if (!scrap) {
+      return res.status(404).json({
+        success: false,
+        message: 'Scrap listing not found',
+      });
+    }
+
+    // Security check: Only the owner seller or an admin can access matching buyers
+    if (scrap.seller._id.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to view matching buyers for this listing',
+      });
+    }
+
+    const matchingBuyers = await findMatchingBuyersForLocation(scrap.location);
+
+    res.status(200).json({
+      success: true,
+      count: matchingBuyers.length,
+      scrapId: scrap._id,
+      scrapLocation: scrap.location,
+      buyers: matchingBuyers,
+    });
+  } catch (error) {
+    console.error('Get matching buyers error:', error.message);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Server error finding matching buyers',
+    });
+  }
+};
+
 module.exports = {
   uploadImages,
   createScrap,
@@ -484,4 +547,5 @@ module.exports = {
   getScrapById,
   updateScrap,
   deleteScrap,
+  getMatchingBuyersForScrap,
 };
