@@ -5,6 +5,7 @@ const {
   findMatchingBuyersForLocation,
   findMatchingBuyersForScrap,
 } = require('../services/locationMatchingService');
+const notificationService = require('../services/notificationService');
 
 /**
  * Helper to upload buffer to Cloudinary using stream
@@ -163,6 +164,13 @@ const createScrap = async (req, res) => {
     console.log(
       `📍 [Location Matching] Found ${matchingBuyers.length} matching buyer(s) for Scrap ID: ${scrap._id} in ${populatedScrap.location.city}, ${populatedScrap.location.district}`
     );
+
+    // Create notifications for matching buyers safely
+    try {
+      await notificationService.createScrapNotificationsForMatchingBuyers(populatedScrap);
+    } catch (notifErr) {
+      console.error('⚠️ [Notification System] Failed to dispatch notifications:', notifErr.message);
+    }
 
     res.status(201).json({
       success: true,

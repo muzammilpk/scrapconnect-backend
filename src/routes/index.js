@@ -4,6 +4,7 @@ const authRoutes = require('./auth.routes');
 const userRoutes = require('./user.routes');
 const buyerRoutes = require('./buyer.routes');
 const scrapRoutes = require('./scrap.routes');
+const notificationRoutes = require('./notification.routes');
 
 const router = express.Router();
 
@@ -13,5 +14,6 @@ router.use('/auth', authRoutes);
 router.use('/users', userRoutes);
 router.use('/buyers', buyerRoutes);
 router.use('/scraps', scrapRoutes);
+router.use('/notifications', notificationRoutes);
 
 module.exports = router;
