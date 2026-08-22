@@ -6,6 +6,7 @@ const buyerRoutes = require('./buyer.routes');
 const scrapRoutes = require('./scrap.routes');
 const notificationRoutes = require('./notification.routes');
 const chatRoutes = require('./chat.routes');
+const offerRoutes = require('./offer.routes');
 
 const router = express.Router();
 
@@ -17,5 +18,6 @@ router.use('/buyers', buyerRoutes);
 router.use('/scraps', scrapRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/chat', chatRoutes);
+router.use('/offers', offerRoutes);
 
 module.exports = router;

@@ -173,6 +173,17 @@ const initSocketServer = (httpServer) => {
       }
     });
 
+    // 7. Real-Time Offer Updates Event
+    socket.on('notify_offer_update', ({ conversationId, offer, eventType }) => {
+      if (conversationId && offer) {
+        io.to(`conversation:${conversationId}`).emit('offer_updated', {
+          conversationId,
+          offer,
+          eventType, // 'created', 'countered', 'accepted', 'rejected', 'cancelled'
+        });
+      }
+    });
+
     // Disconnect Event
     socket.on('disconnect', () => {
       console.log(`🔌 [Socket.IO] Disconnected: ${socket.user.name} (${socket.user._id})`);
