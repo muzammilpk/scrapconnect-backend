@@ -184,6 +184,22 @@ const initSocketServer = (httpServer) => {
       }
     });
 
+    // 8. Real-Time Deal Updates Event
+    socket.on('notify_deal_update', ({ conversationId, deal, eventType }) => {
+      if (deal) {
+        if (conversationId) {
+          io.to(`conversation:${conversationId}`).emit('deal_updated', {
+            deal,
+            eventType,
+          });
+        }
+        io.emit('deal_updated', {
+          deal,
+          eventType,
+        });
+      }
+    });
+
     // Disconnect Event
     socket.on('disconnect', () => {
       console.log(`🔌 [Socket.IO] Disconnected: ${socket.user.name} (${socket.user._id})`);

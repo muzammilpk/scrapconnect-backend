@@ -277,7 +277,28 @@ const acceptOffer = async (req, res) => {
 
     // Update Scrap status to 'reserved'
     scrap.status = 'reserved';
+    scrap.buyer = offer.buyer;
+    scrap.finalPrice = offer.amount;
     await scrap.save();
+
+    // Auto-create Deal from accepted offer
+    const Deal = require('../models/deal.model');
+    let deal = await Deal.findOne({
+      scrap: offer.scrap,
+      status: { $in: ['pending_confirmation', 'confirmed', 'pickup_scheduled'] },
+    });
+
+    if (!deal) {
+      deal = await Deal.create({
+        scrap: offer.scrap,
+        buyer: offer.buyer,
+        seller: offer.seller,
+        acceptedOffer: offer._id,
+        agreedPrice: offer.amount,
+        currency: offer.currency || 'INR',
+        status: 'pending_confirmation',
+      });
+    }
 
     const populatedOffer = await Offer.findById(offer._id)
       .populate('offeredBy', 'name email role')
@@ -285,9 +306,10 @@ const acceptOffer = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Offer accepted successfully! Scrap listing is now reserved.',
+      message: 'Offer accepted successfully! Scrap listing is now reserved and deal created.',
       offer: populatedOffer,
       scrap,
+      deal,
     });
   } catch (error) {
     console.error('Accept offer error:', error.message);
