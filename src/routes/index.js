@@ -9,6 +9,8 @@ const chatRoutes = require('./chat.routes');
 const offerRoutes = require('./offer.routes');
 const dealRoutes = require('./deal.routes');
 const reviewRoutes = require('./review.routes');
+const adminRoutes = require('./admin.routes');
+const reportRoutes = require('./report.routes');
 
 const router = express.Router();
 
@@ -23,5 +25,7 @@ router.use('/chat', chatRoutes);
 router.use('/offers', offerRoutes);
 router.use('/deals', dealRoutes);
 router.use('/reviews', reviewRoutes);
+router.use('/admin', adminRoutes);
+router.use('/reports', reportRoutes);
 
 module.exports = router;

@@ -9,7 +9,7 @@ const {
   deleteScrap,
   getMatchingBuyersForScrap,
 } = require('../controllers/scrap.controller');
-const { protect, authorize } = require('../middleware/auth.middleware');
+const { protect, authorize, checkNotSuspended } = require('../middleware/auth.middleware');
 const upload = require('../middleware/upload.middleware');
 
 const router = express.Router();
@@ -21,8 +21,8 @@ router.use(protect);
 router.get('/', getAllScraps);
 
 // Seller-only endpoints
-router.post('/upload', authorize('seller'), upload.array('images', 5), uploadImages);
-router.post('/', authorize('seller'), createScrap);
+router.post('/upload', authorize('seller'), checkNotSuspended, upload.array('images', 5), uploadImages);
+router.post('/', authorize('seller'), checkNotSuspended, createScrap);
 router.get('/my-listings', authorize('seller'), getMyScrapListings);
 router.get('/:id/matching-buyers', authorize('seller'), getMatchingBuyersForScrap);
 
@@ -30,7 +30,7 @@ router.get('/:id/matching-buyers', authorize('seller'), getMatchingBuyersForScra
 router
   .route('/:id')
   .get(getScrapById)
-  .put(authorize('seller'), updateScrap)
-  .delete(authorize('seller'), deleteScrap);
+  .put(authorize('seller'), checkNotSuspended, updateScrap)
+  .delete(authorize('seller'), checkNotSuspended, deleteScrap);
 
 module.exports = router;

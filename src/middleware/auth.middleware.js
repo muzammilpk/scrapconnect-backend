@@ -63,7 +63,35 @@ const authorize = (...roles) => {
   };
 };
 
+/**
+ * Reusable Middleware to enforce Admin role.
+ */
+const requireAdmin = (req, res, next) => {
+  if (!req.user || req.user.role !== 'admin') {
+    return res.status(403).json({
+      success: false,
+      message: 'Access denied. Admin role required.',
+    });
+  }
+  next();
+};
+
+/**
+ * Reusable Middleware to check if user is suspended.
+ */
+const checkNotSuspended = (req, res, next) => {
+  if (req.user && req.user.status === 'suspended') {
+    return res.status(403).json({
+      success: false,
+      message: 'Your account has been suspended by an administrator.',
+    });
+  }
+  next();
+};
+
 module.exports = {
   protect,
   authorize,
+  requireAdmin,
+  checkNotSuspended,
 };

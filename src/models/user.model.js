@@ -36,10 +36,16 @@ const userSchema = new mongoose.Schema(
     role: {
       type: String,
       enum: {
-        values: ['buyer', 'seller'],
-        message: 'Role must be either buyer or seller',
+        values: ['buyer', 'seller', 'admin'],
+        message: 'Role must be buyer, seller, or admin',
       },
-      required: [true, 'Please specify user role (buyer or seller)'],
+      required: [true, 'Please specify user role'],
+    },
+    status: {
+      type: String,
+      enum: ['active', 'suspended'],
+      default: 'active',
+      index: true,
     },
     profileImage: {
       type: String,
