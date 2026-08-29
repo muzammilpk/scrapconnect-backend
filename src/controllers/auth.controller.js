@@ -188,8 +188,74 @@ const getMe = async (req, res) => {
   }
 };
 
+/**
+ * @desc   Change password for logged in user
+ * @route  POST /api/auth/change-password
+ * @access Private
+ */
+const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword, confirmPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide both current and new password',
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password must be at least 6 characters long',
+      });
+    }
+
+    if (confirmPassword !== undefined && newPassword !== confirmPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'New password and confirm password do not match',
+      });
+    }
+
+    // Retrieve user including password field
+    const user = await User.findById(req.user._id).select('+password');
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User profile not found',
+      });
+    }
+
+    // Verify current password
+    const isMatch = await user.matchPassword(currentPassword);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Incorrect current password',
+      });
+    }
+
+    // Set new password (pre-save hook will hash it automatically)
+    user.password = newPassword;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Password changed successfully',
+    });
+  } catch (error) {
+    console.error('Change password error:', error.message);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Server error changing password',
+    });
+  }
+};
+
 module.exports = {
   registerUser,
   loginUser,
   getMe,
+  changePassword,
 };
