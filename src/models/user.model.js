@@ -69,7 +69,7 @@ const userSchema = new mongoose.Schema(
       {
         state: { type: String, required: [true, 'State is required'], trim: true },
         district: { type: String, required: [true, 'District is required'], trim: true },
-        city: { type: String, required: [true, 'City is required'], trim: true },
+        city: { type: String, default: '', trim: true },
         area: { type: String, default: '', trim: true },
         pincode: { type: String, default: '', trim: true },
         createdAt: { type: Date, default: Date.now },

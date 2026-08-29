@@ -2,13 +2,13 @@ const User = require('../models/user.model');
 const { Scrap } = require('../models/scrap.model');
 
 /**
- * Safely normalizes string values for comparison (trim + lowercase)
+ * Safely normalizes string values for comparison (trim + collapse whitespace + lowercase)
  * @param {string} str 
  * @returns {string}
  */
 const normalizeStr = (str) => {
   if (!str) return '';
-  return str.toString().trim().toLowerCase();
+  return str.toString().trim().replace(/\s+/g, ' ').toLowerCase();
 };
 
 /**

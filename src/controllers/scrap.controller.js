@@ -394,6 +394,13 @@ const deleteScrap = async (req, res) => {
 };
 
 /**
+ * Helper to escape regex special characters
+ */
+const escapeRegex = (text) => {
+  return text.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+};
+
+/**
  * @desc   Get all available scrap listings (Marketplace query with search, filter, sort, pagination)
  * @route  GET /api/scraps
  * @access Private
@@ -408,6 +415,8 @@ const getAllScraps = async (req, res) => {
       city,
       area,
       pincode,
+      minWeight,
+      maxWeight,
       status,
       sort,
       page = 1,
@@ -416,12 +425,12 @@ const getAllScraps = async (req, res) => {
 
     // 1. Build Query Object (Default to status: 'available' unless specified)
     const query = {
-      status: status ? status : 'available',
+      status: status ? status.trim() : 'available',
     };
 
     // Keyword Search (across title, category, description)
     if (search && search.trim()) {
-      const searchRegex = new RegExp(search.trim(), 'i');
+      const searchRegex = new RegExp(escapeRegex(search.trim()), 'i');
       query.$or = [
         { title: searchRegex },
         { category: searchRegex },
@@ -430,35 +439,51 @@ const getAllScraps = async (req, res) => {
     }
 
     // Category filter
-    if (category && category.trim()) {
-      query.category = category.trim();
+    if (category && category.trim() && category.trim() !== 'All Categories') {
+      const catRegex = new RegExp(`^${escapeRegex(category.trim())}$`, 'i');
+      query.category = catRegex;
     }
 
-    // Location filters
+    // Weight filtering (minWeight and maxWeight)
+    const minW = parseFloat(minWeight);
+    const maxW = parseFloat(maxWeight);
+    if (!isNaN(minW) || !isNaN(maxW)) {
+      query.estimatedWeight = {};
+      if (!isNaN(minW)) {
+        query.estimatedWeight.$gte = minW;
+      }
+      if (!isNaN(maxW)) {
+        query.estimatedWeight.$lte = maxW;
+      }
+    }
+
+    // Location filters (case-insensitive & trimmed)
     if (state && state.trim()) {
-      query['location.state'] = new RegExp(`^${state.trim()}$`, 'i');
+      query['location.state'] = new RegExp(`^${escapeRegex(state.trim())}$`, 'i');
     }
     if (district && district.trim()) {
-      query['location.district'] = new RegExp(`^${district.trim()}$`, 'i');
+      query['location.district'] = new RegExp(`^${escapeRegex(district.trim())}$`, 'i');
     }
     if (city && city.trim()) {
-      query['location.city'] = new RegExp(`^${city.trim()}$`, 'i');
+      query['location.city'] = new RegExp(`^${escapeRegex(city.trim())}$`, 'i');
     }
     if (area && area.trim()) {
-      query['location.area'] = new RegExp(area.trim(), 'i');
+      query['location.area'] = new RegExp(escapeRegex(area.trim()), 'i');
     }
     if (pincode && pincode.trim()) {
-      query['location.pincode'] = pincode.trim();
+      query['location.pincode'] = new RegExp(`^${escapeRegex(pincode.trim())}$`, 'i');
     }
 
-    // 2. Sorting
+    // 2. Strict Sorting Whitelist
     let sortOptions = { createdAt: -1 }; // Default: Newest first
     if (sort === 'oldest') {
       sortOptions = { createdAt: 1 };
-    } else if (sort === 'weight_asc') {
+    } else if (sort === 'weight_low' || sort === 'weight_asc') {
       sortOptions = { estimatedWeight: 1 };
-    } else if (sort === 'weight_desc') {
+    } else if (sort === 'weight_high' || sort === 'weight_desc') {
       sortOptions = { estimatedWeight: -1 };
+    } else if (sort === 'newest') {
+      sortOptions = { createdAt: -1 };
     }
 
     // 3. Pagination
@@ -480,12 +505,19 @@ const getAllScraps = async (req, res) => {
 
     res.status(200).json({
       success: true,
+      data: scraps,
+      scraps: scraps, // Backwards compatibility
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total: totalListings,
+        totalPages,
+      },
       count: scraps.length,
       page: pageNum,
       limit: limitNum,
       totalPages,
       totalListings,
-      scraps,
     });
   } catch (error) {
     console.error('Get all scraps error:', error.message);

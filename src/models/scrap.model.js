@@ -83,6 +83,12 @@ const scrapSchema = new mongoose.Schema(
   }
 );
 
+// Indexes for query performance and fast location/category matching
+scrapSchema.index({ status: 1, createdAt: -1 });
+scrapSchema.index({ category: 1, status: 1 });
+scrapSchema.index({ 'location.state': 1, 'location.district': 1, 'location.city': 1 });
+scrapSchema.index({ title: 'text', description: 'text', category: 'text' });
+
 const Scrap = mongoose.model('Scrap', scrapSchema);
 
 module.exports = {

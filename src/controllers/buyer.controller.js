@@ -2,7 +2,7 @@ const User = require('../models/user.model');
 
 /**
  * @desc   Get all service regions for the authenticated buyer
- * @route  GET /api/buyers/service-regions
+ * @route  GET /api/buyers/service-regions or GET /api/users/me/service-regions
  * @access Private (Buyer only)
  */
 const getServiceRegions = async (req, res) => {
@@ -15,10 +15,13 @@ const getServiceRegions = async (req, res) => {
       });
     }
 
+    const regions = user.serviceRegions || [];
+
     res.status(200).json({
       success: true,
-      count: user.serviceRegions ? user.serviceRegions.length : 0,
-      serviceRegions: user.serviceRegions || [],
+      data: regions,
+      serviceRegions: regions,
+      count: regions.length,
     });
   } catch (error) {
     console.error('Get service regions error:', error.message);
@@ -31,14 +34,14 @@ const getServiceRegions = async (req, res) => {
 
 /**
  * @desc   Add a new service region for the authenticated buyer
- * @route  POST /api/buyers/service-regions
+ * @route  POST /api/buyers/service-regions or POST /api/users/me/service-regions
  * @access Private (Buyer only)
  */
 const addServiceRegion = async (req, res) => {
   try {
     const { state, district, city, area, pincode } = req.body;
 
-    // 1. Basic field validation
+    // 1. Validation: State and District are strictly required
     if (!state || !state.trim()) {
       return res.status(400).json({
         success: false,
@@ -51,17 +54,11 @@ const addServiceRegion = async (req, res) => {
         message: 'District is required',
       });
     }
-    if (!city || !city.trim()) {
-      return res.status(400).json({
-        success: false,
-        message: 'City is required',
-      });
-    }
 
     // Pincode validation if provided
-    if (pincode && pincode.trim()) {
+    if (pincode && pincode.toString().trim()) {
       const pincodeRegex = /^[0-9]{5,10}$/;
-      if (!pincodeRegex.test(pincode.trim())) {
+      if (!pincodeRegex.test(pincode.toString().trim())) {
         return res.status(400).json({
           success: false,
           message: 'Please provide a valid pincode (5 to 10 digits)',
@@ -79,16 +76,18 @@ const addServiceRegion = async (req, res) => {
 
     const newState = state.trim();
     const newDistrict = district.trim();
-    const newCity = city.trim();
+    const newCity = city ? city.trim() : '';
     const newArea = area ? area.trim() : '';
+    const newPincode = pincode ? pincode.toString().trim() : '';
 
     // 2. Check for duplicate region
     const isDuplicate = user.serviceRegions.some((r) => {
       return (
         r.state.toLowerCase() === newState.toLowerCase() &&
         r.district.toLowerCase() === newDistrict.toLowerCase() &&
-        r.city.toLowerCase() === newCity.toLowerCase() &&
-        (r.area ? r.area.toLowerCase() : '') === newArea.toLowerCase()
+        (r.city ? r.city.toLowerCase() : '') === newCity.toLowerCase() &&
+        (r.area ? r.area.toLowerCase() : '') === newArea.toLowerCase() &&
+        (r.pincode ? r.pincode.toLowerCase() : '') === newPincode.toLowerCase()
       );
     });
 
@@ -104,7 +103,7 @@ const addServiceRegion = async (req, res) => {
       district: newDistrict,
       city: newCity,
       area: newArea,
-      pincode: pincode ? pincode.trim() : '',
+      pincode: newPincode,
     };
 
     user.serviceRegions.push(newRegion);
@@ -115,6 +114,7 @@ const addServiceRegion = async (req, res) => {
     res.status(201).json({
       success: true,
       message: 'Service region added successfully',
+      data: addedRegion,
       region: addedRegion,
       serviceRegions: user.serviceRegions,
     });
@@ -128,13 +128,13 @@ const addServiceRegion = async (req, res) => {
 };
 
 /**
- * @desc   Update an existing service region
- * @route  PUT /api/buyers/service-regions/:regionId
+ * @desc   Update / Patch an existing service region
+ * @route  PUT/PATCH /api/buyers/service-regions/:regionId or /api/users/me/service-regions/:id
  * @access Private (Buyer only)
  */
 const updateServiceRegion = async (req, res) => {
   try {
-    const { regionId } = req.params;
+    const targetId = req.params.id || req.params.regionId;
     const { state, district, city, area, pincode } = req.body;
 
     const user = await User.findById(req.user._id);
@@ -146,7 +146,7 @@ const updateServiceRegion = async (req, res) => {
     }
 
     // Find target region subdocument
-    const region = user.serviceRegions.id(regionId);
+    const region = user.serviceRegions.id(targetId);
     if (!region) {
       return res.status(404).json({
         success: false,
@@ -157,14 +157,14 @@ const updateServiceRegion = async (req, res) => {
     // Validate inputs if supplied
     const updatedState = state !== undefined ? state.trim() : region.state;
     const updatedDistrict = district !== undefined ? district.trim() : region.district;
-    const updatedCity = city !== undefined ? city.trim() : region.city;
-    const updatedArea = area !== undefined ? area.trim() : region.area;
-    const updatedPincode = pincode !== undefined ? pincode.trim() : region.pincode;
+    const updatedCity = city !== undefined ? city.trim() : (region.city || '');
+    const updatedArea = area !== undefined ? area.trim() : (region.area || '');
+    const updatedPincode = pincode !== undefined ? pincode.toString().trim() : (region.pincode || '');
 
-    if (!updatedState || !updatedDistrict || !updatedCity) {
+    if (!updatedState || !updatedDistrict) {
       return res.status(400).json({
         success: false,
-        message: 'State, district, and city are required',
+        message: 'State and district are required',
       });
     }
 
@@ -180,12 +180,13 @@ const updateServiceRegion = async (req, res) => {
 
     // Check duplicate against OTHER regions
     const isDuplicate = user.serviceRegions.some((r) => {
-      if (r._id.toString() === regionId) return false;
+      if (r._id.toString() === targetId) return false;
       return (
         r.state.toLowerCase() === updatedState.toLowerCase() &&
         r.district.toLowerCase() === updatedDistrict.toLowerCase() &&
-        r.city.toLowerCase() === updatedCity.toLowerCase() &&
-        (r.area ? r.area.toLowerCase() : '') === updatedArea.toLowerCase()
+        (r.city ? r.city.toLowerCase() : '') === updatedCity.toLowerCase() &&
+        (r.area ? r.area.toLowerCase() : '') === updatedArea.toLowerCase() &&
+        (r.pincode ? r.pincode.toLowerCase() : '') === updatedPincode.toLowerCase()
       );
     });
 
@@ -208,6 +209,7 @@ const updateServiceRegion = async (req, res) => {
     res.status(200).json({
       success: true,
       message: 'Service region updated successfully',
+      data: region,
       region,
       serviceRegions: user.serviceRegions,
     });
@@ -222,12 +224,12 @@ const updateServiceRegion = async (req, res) => {
 
 /**
  * @desc   Delete a service region
- * @route  DELETE /api/buyers/service-regions/:regionId
+ * @route  DELETE /api/buyers/service-regions/:regionId or /api/users/me/service-regions/:id
  * @access Private (Buyer only)
  */
 const deleteServiceRegion = async (req, res) => {
   try {
-    const { regionId } = req.params;
+    const targetId = req.params.id || req.params.regionId;
 
     const user = await User.findById(req.user._id);
     if (!user) {
@@ -237,7 +239,7 @@ const deleteServiceRegion = async (req, res) => {
       });
     }
 
-    const region = user.serviceRegions.id(regionId);
+    const region = user.serviceRegions.id(targetId);
     if (!region) {
       return res.status(404).json({
         success: false,
@@ -245,12 +247,13 @@ const deleteServiceRegion = async (req, res) => {
       });
     }
 
-    user.serviceRegions.pull(regionId);
+    user.serviceRegions.pull(targetId);
     await user.save();
 
     res.status(200).json({
       success: true,
       message: 'Service region deleted successfully',
+      data: user.serviceRegions,
       serviceRegions: user.serviceRegions,
     });
   } catch (error) {
