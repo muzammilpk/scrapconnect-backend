@@ -11,7 +11,16 @@ const notificationSchema = new mongoose.Schema(
     type: {
       type: String,
       enum: {
-        values: ['new_scrap_nearby'],
+        values: [
+          'NEW_SCRAP',
+          'new_scrap_nearby',
+          'NEW_MESSAGE',
+          'OFFER_RECEIVED',
+          'OFFER_ACCEPTED',
+          'OFFER_REJECTED',
+          'DEAL_UPDATE',
+          'REVIEW_REQUEST',
+        ],
         message: 'Invalid notification type',
       },
       required: [true, 'Notification type is required'],
@@ -29,8 +38,19 @@ const notificationSchema = new mongoose.Schema(
     scrap: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Scrap',
-      required: [true, 'Associated scrap reference is required'],
       index: true,
+    },
+    seller: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    conversation: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Conversation',
+    },
+    deal: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Deal',
     },
     isRead: {
       type: Boolean,

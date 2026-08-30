@@ -388,6 +388,77 @@ const getPublicSellerListings = async (req, res) => {
   }
 };
 
+/**
+ * @desc   Get authenticated user's notification preferences
+ * @route  GET /api/users/me/notification-preferences
+ * @access Private
+ */
+const getNotificationPreferences = async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id).select('notificationPreferences');
+
+    res.status(200).json({
+      success: true,
+      notificationPreferences: user?.notificationPreferences || {
+        newScrapInRegion: true,
+        newMessages: true,
+        offers: true,
+        dealUpdates: true,
+        reviewReminders: true,
+      },
+    });
+  } catch (error) {
+    console.error('Get notification preferences error:', error.message);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Server error fetching notification preferences',
+    });
+  }
+};
+
+/**
+ * @desc   Update authenticated user's notification preferences
+ * @route  PATCH /api/users/me/notification-preferences
+ * @access Private
+ */
+const updateNotificationPreferences = async (req, res) => {
+  try {
+    const { newScrapInRegion, newMessages, offers, dealUpdates, reviewReminders } = req.body;
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found',
+      });
+    }
+
+    if (!user.notificationPreferences) {
+      user.notificationPreferences = {};
+    }
+
+    if (typeof newScrapInRegion === 'boolean') user.notificationPreferences.newScrapInRegion = newScrapInRegion;
+    if (typeof newMessages === 'boolean') user.notificationPreferences.newMessages = newMessages;
+    if (typeof offers === 'boolean') user.notificationPreferences.offers = offers;
+    if (typeof dealUpdates === 'boolean') user.notificationPreferences.dealUpdates = dealUpdates;
+    if (typeof reviewReminders === 'boolean') user.notificationPreferences.reviewReminders = reviewReminders;
+
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Notification preferences updated successfully',
+      notificationPreferences: user.notificationPreferences,
+    });
+  } catch (error) {
+    console.error('Update notification preferences error:', error.message);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Server error updating notification preferences',
+    });
+  }
+};
+
 module.exports = {
   getProfile,
   updateProfile,
@@ -395,4 +466,6 @@ module.exports = {
   getUserStats,
   getPublicProfile,
   getPublicSellerListings,
+  getNotificationPreferences,
+  updateNotificationPreferences,
 };

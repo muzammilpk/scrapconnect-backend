@@ -6,6 +6,8 @@ const {
   getUserStats,
   getPublicProfile,
   getPublicSellerListings,
+  getNotificationPreferences,
+  updateNotificationPreferences,
 } = require('../controllers/user.controller');
 const {
   getServiceRegions,
@@ -35,6 +37,11 @@ router
 
 router.get('/me/stats', getUserStats);
 router.patch('/me/status', deactivateAccount);
+
+router
+  .route('/me/notification-preferences')
+  .get(getNotificationPreferences)
+  .patch(updateNotificationPreferences);
 
 // Buyer Service Regions routes at /api/users/me/service-regions
 router

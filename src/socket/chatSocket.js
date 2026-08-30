@@ -16,6 +16,8 @@ const isParticipant = (conversation, userId) => {
   return buyerId === uIdStr || sellerId === uIdStr;
 };
 
+let ioInstance = null;
+
 /**
  * Initializes Socket.IO server with JWT authentication middleware and room handlers
  * @param {Object} httpServer - Node HTTP Server instance
@@ -28,6 +30,8 @@ const initSocketServer = (httpServer) => {
       methods: ['GET', 'POST'],
     },
   });
+
+  ioInstance = io;
 
   // Socket.IO Middleware for JWT Authentication
   io.use(async (socket, next) => {
@@ -59,6 +63,11 @@ const initSocketServer = (httpServer) => {
   // Connection Event
   io.on('connection', (socket) => {
     console.log(`🔌 [Socket.IO] Connected: ${socket.user.name} (${socket.user._id})`);
+
+    // Auto-join user to personal room for real-time notification alerts
+    const userRoom = `user:${socket.user._id.toString()}`;
+    socket.join(userRoom);
+    console.log(`🔔 User ${socket.user.name} joined personal alert room: ${userRoom}`);
 
     // 1. Join Conversation Room
     socket.on('join_conversation', async ({ conversationId }) => {
@@ -209,6 +218,18 @@ const initSocketServer = (httpServer) => {
   return io;
 };
 
+/**
+ * Emits real-time notification to a specific user's personal socket room
+ */
+const sendSocketNotification = (recipientId, notification) => {
+  if (ioInstance && recipientId) {
+    const room = `user:${recipientId.toString()}`;
+    ioInstance.to(room).emit('notification:new', notification);
+  }
+};
+
 module.exports = {
   initSocketServer,
+  sendSocketNotification,
+  getIO: () => ioInstance,
 };

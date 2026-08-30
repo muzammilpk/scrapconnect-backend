@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const Offer = require('../models/offer.model');
 const Conversation = require('../models/conversation.model');
 const { Scrap } = require('../models/scrap.model');
+const notificationService = require('../services/notificationService');
 
 /**
  * Helper to check participant access

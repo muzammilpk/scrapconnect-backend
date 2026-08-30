@@ -36,6 +36,7 @@ const getUnreadCount = async (req, res) => {
 
     res.status(200).json({
       success: true,
+      count: unreadCount,
       unreadCount,
     });
   } catch (error) {

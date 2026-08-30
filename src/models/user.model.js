@@ -75,6 +75,13 @@ const userSchema = new mongoose.Schema(
         createdAt: { type: Date, default: Date.now },
       },
     ],
+    notificationPreferences: {
+      newScrapInRegion: { type: Boolean, default: true },
+      newMessages: { type: Boolean, default: true },
+      offers: { type: Boolean, default: true },
+      dealUpdates: { type: Boolean, default: true },
+      reviewReminders: { type: Boolean, default: true },
+    },
   },
   {
     timestamps: true,

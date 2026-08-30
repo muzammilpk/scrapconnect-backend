@@ -3,6 +3,7 @@ const Deal = require('../models/deal.model');
 const Offer = require('../models/offer.model');
 const { Scrap } = require('../models/scrap.model');
 const Conversation = require('../models/conversation.model');
+const notificationService = require('../services/notificationService');
 
 /**
  * Helper to check deal participation
@@ -301,6 +302,36 @@ const updateDealStatus = async (req, res) => {
       .populate('buyer', 'name email role phone location')
       .populate('seller', 'name email role phone location')
       .populate('acceptedOffer');
+
+    // Notify other participant of deal update
+    try {
+      const recipientId = deal.buyer.toString() === req.user._id.toString() ? deal.seller : deal.buyer;
+      const scrapTitle = populatedDeal.scrap?.title || 'Scrap Listing';
+      const statusTitle = status.replace('_', ' ').toUpperCase();
+
+      await notificationService.createNotification({
+        recipient: recipientId,
+        type: 'DEAL_UPDATE',
+        title: `Deal Status: ${statusTitle} 🤝`,
+        message: `The deal status for ${scrapTitle} has been updated to "${status.replace('_', ' ')}".`,
+        scrap: deal.scrap,
+        deal: deal._id,
+      });
+
+      if (status === 'completed') {
+        // Request review from both participants
+        await notificationService.createNotification({
+          recipient: recipientId,
+          type: 'REVIEW_REQUEST',
+          title: 'Leave a Rating & Review ⭐',
+          message: `Your deal for ${scrapTitle} is completed! Tap here to leave your review.`,
+          scrap: deal.scrap,
+          deal: deal._id,
+        });
+      }
+    } catch (notifErr) {
+      console.error('Failed to send deal update notification:', notifErr.message);
+    }
 
     res.status(200).json({
       success: true,
