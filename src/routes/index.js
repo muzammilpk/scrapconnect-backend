@@ -22,6 +22,7 @@ router.use('/buyers', buyerRoutes);
 router.use('/scraps', scrapRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/chat', chatRoutes);
+router.use('/conversations', chatRoutes);
 router.use('/offers', offerRoutes);
 router.use('/deals', dealRoutes);
 router.use('/reviews', reviewRoutes);

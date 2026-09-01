@@ -17,6 +17,7 @@ const isParticipant = (conversation, userId) => {
 };
 
 let ioInstance = null;
+const onlineUsers = new Map(); // userId -> socketId
 
 /**
  * Initializes Socket.IO server with JWT authentication middleware and room handlers
@@ -62,12 +63,24 @@ const initSocketServer = (httpServer) => {
 
   // Connection Event
   io.on('connection', (socket) => {
-    console.log(`🔌 [Socket.IO] Connected: ${socket.user.name} (${socket.user._id})`);
+    const userIdStr = socket.user._id.toString();
+    onlineUsers.set(userIdStr, socket.id);
+    console.log(`🔌 [Socket.IO] Connected: ${socket.user.name} (${userIdStr})`);
+
+    // Broadcast user online status
+    io.emit('user_online', { userId: userIdStr });
 
     // Auto-join user to personal room for real-time notification alerts
-    const userRoom = `user:${socket.user._id.toString()}`;
+    const userRoom = `user:${userIdStr}`;
     socket.join(userRoom);
-    console.log(`🔔 User ${socket.user.name} joined personal alert room: ${userRoom}`);
+
+    // Check online status of target user
+    socket.on('check_online_status', ({ userId }, callback) => {
+      const isOnline = onlineUsers.has(userId);
+      if (typeof callback === 'function') {
+        callback({ online: isOnline, userId });
+      }
+    });
 
     // 1. Join Conversation Room
     socket.on('join_conversation', async ({ conversationId }) => {
@@ -108,13 +121,20 @@ const initSocketServer = (httpServer) => {
           return socket.emit('chat_error', { message: 'Unauthorized or conversation not found' });
         }
 
-        const trimmedText = text.trim();
+        // Enforce 2000 character limit & sanitize
+        const trimmedText = text.trim().substring(0, 2000).replace(/<[^>]*>?/gm, '');
+
+        // Determine recipient ID
+        const recipientId = conversation.buyer.toString() === userIdStr ? conversation.seller : conversation.buyer;
+        const recipientOnline = onlineUsers.has(recipientId.toString());
 
         // Save message in MongoDB
         const message = await Message.create({
           conversation: conversationId,
           sender: socket.user._id,
           text: trimmedText,
+          messageType: 'TEXT',
+          status: recipientOnline ? 'delivered' : 'sent',
           isRead: false,
         });
 
@@ -129,9 +149,25 @@ const initSocketServer = (httpServer) => {
           'name email profileImage role'
         );
 
-        // Emit new message event to conversation room
+        // Emit new message events to conversation room
         const roomName = `conversation:${conversationId}`;
+        io.to(roomName).emit('message:new', populatedMessage);
         io.to(roomName).emit('new_message', populatedMessage);
+
+        // Trigger in-app notification for recipient
+        try {
+          const notificationService = require('../services/notificationService');
+          await notificationService.createNotification({
+            recipient: recipientId,
+            type: 'NEW_MESSAGE',
+            title: `New Message from ${socket.user.name} 💬`,
+            message: trimmedText.length > 60 ? `${trimmedText.substring(0, 60)}...` : trimmedText,
+            conversation: conversationId,
+            scrap: conversation.scrap,
+          });
+        } catch (notifErr) {
+          // Quiet background alert error
+        }
       } catch (err) {
         console.error('Socket send message error:', err.message);
         socket.emit('chat_error', { message: err.message });
@@ -170,7 +206,7 @@ const initSocketServer = (httpServer) => {
             sender: { $ne: socket.user._id },
             isRead: false,
           },
-          { isRead: true }
+          { isRead: true, status: 'read' }
         );
 
         io.to(`conversation:${conversationId}`).emit('messages_read', {
@@ -188,7 +224,7 @@ const initSocketServer = (httpServer) => {
         io.to(`conversation:${conversationId}`).emit('offer_updated', {
           conversationId,
           offer,
-          eventType, // 'created', 'countered', 'accepted', 'rejected', 'cancelled'
+          eventType,
         });
       }
     });
@@ -211,7 +247,9 @@ const initSocketServer = (httpServer) => {
 
     // Disconnect Event
     socket.on('disconnect', () => {
-      console.log(`🔌 [Socket.IO] Disconnected: ${socket.user.name} (${socket.user._id})`);
+      onlineUsers.delete(userIdStr);
+      io.emit('user_offline', { userId: userIdStr });
+      console.log(`🔌 [Socket.IO] Disconnected: ${socket.user.name} (${userIdStr})`);
     });
   });
 
@@ -228,8 +266,49 @@ const sendSocketNotification = (recipientId, notification) => {
   }
 };
 
+/**
+ * Sends a structured SYSTEM message into a conversation
+ */
+const sendSystemMessageInConversation = async (conversationId, text, dealId = null, offerId = null) => {
+  try {
+    if (!conversationId || !text) return null;
+
+    const conversation = await Conversation.findById(conversationId);
+    if (!conversation) return null;
+
+    const sysMessage = await Message.create({
+      conversation: conversationId,
+      sender: conversation.seller, // Attach to seller reference as placeholder for system messages
+      text,
+      messageType: 'SYSTEM',
+      status: 'read',
+      isRead: true,
+      deal: dealId,
+      offer: offerId,
+    });
+
+    await Conversation.findByIdAndUpdate(conversationId, {
+      lastMessage: `[SYSTEM] ${text}`,
+      lastMessageAt: sysMessage.createdAt,
+    });
+
+    if (ioInstance) {
+      const roomName = `conversation:${conversationId}`;
+      ioInstance.to(roomName).emit('message:new', sysMessage);
+      ioInstance.to(roomName).emit('new_message', sysMessage);
+    }
+
+    return sysMessage;
+  } catch (err) {
+    console.error('Failed to send system message:', err.message);
+    return null;
+  }
+};
+
 module.exports = {
   initSocketServer,
   sendSocketNotification,
+  sendSystemMessageInConversation,
   getIO: () => ioInstance,
+  isUserOnline: (userId) => onlineUsers.has(userId ? userId.toString() : ''),
 };

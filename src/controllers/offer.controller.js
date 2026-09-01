@@ -301,6 +301,14 @@ const acceptOffer = async (req, res) => {
       });
     }
 
+    const { sendSystemMessageInConversation } = require('../socket/chatSocket');
+    await sendSystemMessageInConversation(
+      offer.conversation,
+      `🎉 Price offer of ₹${offer.amount.toLocaleString()} accepted! Scrap is reserved & Deal created.`,
+      deal._id,
+      offer._id
+    );
+
     const populatedOffer = await Offer.findById(offer._id)
       .populate('offeredBy', 'name email role')
       .populate('scrap', 'title category estimatedWeight weightUnit status');

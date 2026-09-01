@@ -329,6 +329,17 @@ const updateDealStatus = async (req, res) => {
           deal: deal._id,
         });
       }
+
+      // Also send system message to chat conversation if present
+      const { sendSystemMessageInConversation } = require('../socket/chatSocket');
+      const conv = await Conversation.findOne({ scrap: deal.scrap, buyer: deal.buyer, seller: deal.seller });
+      if (conv) {
+        await sendSystemMessageInConversation(
+          conv._id,
+          `🤝 Deal status updated to: ${status.replace('_', ' ').toUpperCase()}`,
+          deal._id
+        );
+      }
     } catch (notifErr) {
       console.error('Failed to send deal update notification:', notifErr.message);
     }

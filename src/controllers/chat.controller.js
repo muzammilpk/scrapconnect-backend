@@ -350,7 +350,7 @@ const markConversationAsRead = async (req, res) => {
         sender: { $ne: req.user._id },
         isRead: false,
       },
-      { isRead: true }
+      { isRead: true, status: 'read' }
     );
 
     res.status(200).json({
@@ -367,6 +367,41 @@ const markConversationAsRead = async (req, res) => {
   }
 };
 
+/**
+ * @desc   Get total unread chat messages count for current user
+ * @route  GET /api/chat/unread-count, GET /api/conversations/unread-count
+ * @access Private
+ */
+const getUnreadChatCount = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const userConvs = await Conversation.find({
+      $or: [{ buyer: userId }, { seller: userId }],
+    }).select('_id');
+
+    const convIds = userConvs.map((c) => c._id);
+
+    const count = await Message.countDocuments({
+      conversation: { $in: convIds },
+      sender: { $ne: userId },
+      isRead: false,
+    });
+
+    res.status(200).json({
+      success: true,
+      count,
+      unreadCount: count,
+    });
+  } catch (error) {
+    console.error('Get unread chat count error:', error.message);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Server error retrieving unread chat count',
+    });
+  }
+};
+
 module.exports = {
   createOrGetConversation,
   getUserConversations,
@@ -374,4 +409,5 @@ module.exports = {
   getMessages,
   sendMessage,
   markConversationAsRead,
+  getUnreadChatCount,
 };

@@ -20,6 +20,26 @@ const messageSchema = new mongoose.Schema(
       trim: true,
       maxlength: [2000, 'Message cannot exceed 2000 characters'],
     },
+    messageType: {
+      type: String,
+      enum: ['TEXT', 'OFFER', 'SYSTEM'],
+      default: 'TEXT',
+      index: true,
+    },
+    status: {
+      type: String,
+      enum: ['sent', 'delivered', 'read'],
+      default: 'sent',
+      index: true,
+    },
+    offer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Offer',
+    },
+    deal: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Deal',
+    },
     isRead: {
       type: Boolean,
       default: false,
