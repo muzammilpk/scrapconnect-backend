@@ -15,6 +15,7 @@ const {
   updateReportStatus,
 } = require('../controllers/admin.controller');
 const { protect, requireAdmin } = require('../middleware/auth.middleware');
+const { validateObjectId } = require('../middleware/validate.middleware');
 
 const router = express.Router();
 
@@ -27,24 +28,24 @@ router.get('/dashboard', getDashboardStats);
 
 // User Management
 router.get('/users', getUsers);
-router.get('/users/:id', getUserById);
-router.patch('/users/:id/status', updateUserStatus);
+router.get('/users/:id', validateObjectId('id'), getUserById);
+router.patch('/users/:id/status', validateObjectId('id'), updateUserStatus);
 
 // Scrap Moderation
 router.get('/scraps', getScraps);
-router.get('/scraps/:id', getScrapById);
-router.patch('/scraps/:id/status', updateScrapStatus);
+router.get('/scraps/:id', validateObjectId('id'), getScrapById);
+router.patch('/scraps/:id/status', validateObjectId('id'), updateScrapStatus);
 
 // Deal Monitoring
 router.get('/deals', getDeals);
-router.get('/deals/:id', getDealById);
+router.get('/deals/:id', validateObjectId('id'), getDealById);
 
 // Review Moderation
 router.get('/reviews', getReviews);
-router.delete('/reviews/:id', deleteReview);
+router.delete('/reviews/:id', validateObjectId('id'), deleteReview);
 
 // Report Management
 router.get('/reports', getReports);
-router.patch('/reports/:id', updateReportStatus);
+router.patch('/reports/:id', validateObjectId('id'), updateReportStatus);
 
 module.exports = router;

@@ -10,6 +10,7 @@ const {
   getMatchingBuyersForScrap,
 } = require('../controllers/scrap.controller');
 const { protect, authorize, checkNotSuspended } = require('../middleware/auth.middleware');
+const { validateObjectId } = require('../middleware/validate.middleware');
 const upload = require('../middleware/upload.middleware');
 
 const router = express.Router();
@@ -24,14 +25,14 @@ router.get('/', getAllScraps);
 router.post('/upload', authorize('seller'), checkNotSuspended, upload.array('images', 5), uploadImages);
 router.post('/', authorize('seller'), checkNotSuspended, createScrap);
 router.get('/my-listings', authorize('seller'), getMyScrapListings);
-router.get('/:id/matching-buyers', authorize('seller'), getMatchingBuyersForScrap);
+router.get('/:id/matching-buyers', authorize('seller'), validateObjectId('id'), getMatchingBuyersForScrap);
 
 // Individual scrap listing operations
 router
   .route('/:id')
-  .get(getScrapById)
-  .put(authorize('seller'), checkNotSuspended, updateScrap)
-  .patch(authorize('seller'), checkNotSuspended, updateScrap)
-  .delete(authorize('seller'), checkNotSuspended, deleteScrap);
+  .get(validateObjectId('id'), getScrapById)
+  .put(validateObjectId('id'), authorize('seller'), checkNotSuspended, updateScrap)
+  .patch(validateObjectId('id'), authorize('seller'), checkNotSuspended, updateScrap)
+  .delete(validateObjectId('id'), authorize('seller'), checkNotSuspended, deleteScrap);
 
 module.exports = router;

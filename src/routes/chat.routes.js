@@ -9,6 +9,8 @@ const {
   getUnreadChatCount,
 } = require('../controllers/chat.controller');
 const { protect } = require('../middleware/auth.middleware');
+const { validateObjectId } = require('../middleware/validate.middleware');
+const { strictActionLimiter } = require('../middleware/rateLimit.middleware');
 
 const router = express.Router();
 
@@ -29,19 +31,19 @@ router.route('/')
   .post(createOrGetConversation);
 
 // Single conversation & messages
-router.get('/conversations/:id', getConversationById);
-router.get('/:id', getConversationById);
+router.get('/conversations/:id', validateObjectId('id'), getConversationById);
+router.get('/:id', validateObjectId('id'), getConversationById);
 
 router.route('/conversations/:id/messages')
-  .get(getMessages)
-  .post(sendMessage);
+  .get(validateObjectId('id'), getMessages)
+  .post(validateObjectId('id'), strictActionLimiter, sendMessage);
 
 router.route('/:id/messages')
-  .get(getMessages)
-  .post(sendMessage);
+  .get(validateObjectId('id'), getMessages)
+  .post(validateObjectId('id'), strictActionLimiter, sendMessage);
 
 // Mark read
-router.patch('/conversations/:id/read', markConversationAsRead);
-router.patch('/:id/read', markConversationAsRead);
+router.patch('/conversations/:id/read', validateObjectId('id'), markConversationAsRead);
+router.patch('/:id/read', validateObjectId('id'), markConversationAsRead);
 
 module.exports = router;

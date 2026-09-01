@@ -16,6 +16,7 @@ const {
   deleteServiceRegion,
 } = require('../controllers/buyer.controller');
 const { protect, authorize } = require('../middleware/auth.middleware');
+const { validateObjectId } = require('../middleware/validate.middleware');
 
 const router = express.Router();
 
@@ -51,12 +52,12 @@ router
 
 router
   .route('/me/service-regions/:id')
-  .patch(authorize('buyer'), updateServiceRegion)
-  .put(authorize('buyer'), updateServiceRegion)
-  .delete(authorize('buyer'), deleteServiceRegion);
+  .patch(authorize('buyer'), validateObjectId('id'), updateServiceRegion)
+  .put(authorize('buyer'), validateObjectId('id'), updateServiceRegion)
+  .delete(authorize('buyer'), validateObjectId('id'), deleteServiceRegion);
 
 // Public profile & listings routes
-router.get('/:id/profile', getPublicProfile);
-router.get('/:id/listings', getPublicSellerListings);
+router.get('/:id/profile', validateObjectId('id'), getPublicProfile);
+router.get('/:id/listings', validateObjectId('id'), getPublicSellerListings);
 
 module.exports = router;

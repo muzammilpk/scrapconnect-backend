@@ -7,6 +7,7 @@ const {
   updatePickupDetails,
 } = require('../controllers/deal.controller');
 const { protect } = require('../middleware/auth.middleware');
+const { validateObjectId } = require('../middleware/validate.middleware');
 
 const router = express.Router();
 
@@ -15,8 +16,8 @@ router.use(protect);
 
 router.post('/', createDeal);
 router.get('/', getDeals);
-router.get('/:id', getDealById);
-router.patch('/:id/status', updateDealStatus);
-router.patch('/:id/pickup', updatePickupDetails);
+router.get('/:id', validateObjectId('id'), getDealById);
+router.patch('/:id/status', validateObjectId('id'), updateDealStatus);
+router.patch('/:id/pickup', validateObjectId('id'), updatePickupDetails);
 
 module.exports = router;
