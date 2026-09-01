@@ -49,8 +49,8 @@ const scrapSchema = new mongoose.Schema(
     ],
     estimatedWeight: {
       type: Number,
-      required: [true, 'Please specify estimated weight or quantity'],
-      min: [0.01, 'Weight must be greater than 0'],
+      min: [0, 'Weight cannot be negative'],
+      default: null,
     },
     weightUnit: {
       type: String,
@@ -59,6 +59,11 @@ const scrapSchema = new mongoose.Schema(
         message: 'Weight unit must be kg, ton, g, or items',
       },
       default: 'kg',
+    },
+    expectedPrice: {
+      type: Number,
+      min: [0, 'Price cannot be negative'],
+      default: null,
     },
     location: {
       state: { type: String, required: [true, 'State is required'], trim: true },
@@ -72,8 +77,8 @@ const scrapSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: {
-        values: ['available', 'reserved', 'sold'],
-        message: 'Status must be available, reserved, or sold',
+        values: ['draft', 'available', 'reserved', 'sold', 'removed'],
+        message: 'Status must be draft, available, reserved, sold, or removed',
       },
       default: 'available',
     },

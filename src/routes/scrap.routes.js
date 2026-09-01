@@ -31,6 +31,7 @@ router
   .route('/:id')
   .get(getScrapById)
   .put(authorize('seller'), checkNotSuspended, updateScrap)
+  .patch(authorize('seller'), checkNotSuspended, updateScrap)
   .delete(authorize('seller'), checkNotSuspended, deleteScrap);
 
 module.exports = router;

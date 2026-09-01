@@ -91,10 +91,12 @@ const createScrap = async (req, res) => {
       images,
       estimatedWeight,
       weightUnit,
+      expectedPrice,
       location,
+      status = 'available',
     } = req.body;
 
-    // 1. Validation: Title, Category, Weight, Location
+    // 1. Validation: Title & Category
     if (!title || !title.trim()) {
       return res.status(400).json({
         success: false,
@@ -109,11 +111,28 @@ const createScrap = async (req, res) => {
       });
     }
 
-    if (estimatedWeight === undefined || isNaN(estimatedWeight) || Number(estimatedWeight) <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Estimated weight must be a positive number',
-      });
+    // Optional Numeric Weight Validation
+    let parsedWeight = null;
+    if (estimatedWeight !== undefined && estimatedWeight !== null && estimatedWeight !== '') {
+      parsedWeight = Number(estimatedWeight);
+      if (isNaN(parsedWeight) || parsedWeight < 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Estimated weight must be a positive number',
+        });
+      }
+    }
+
+    // Optional Numeric Expected Price Validation
+    let parsedPrice = null;
+    if (expectedPrice !== undefined && expectedPrice !== null && expectedPrice !== '') {
+      parsedPrice = Number(expectedPrice);
+      if (isNaN(parsedPrice) || parsedPrice < 0) {
+        return res.status(400).json({
+          success: false,
+          message: 'Expected price must be a non-negative number',
+        });
+      }
     }
 
     if (!location || typeof location !== 'object') {
@@ -132,15 +151,18 @@ const createScrap = async (req, res) => {
       });
     }
 
-    // 2. Attach Seller ID directly from authenticated user
+    const listingStatus = ['available', 'draft'].includes(status) ? status : 'available';
+
+    // 2. Create listing attached to seller
     const scrap = await Scrap.create({
       seller: req.user._id,
       title: title.trim(),
       category,
       description: description ? description.trim() : '',
       images: Array.isArray(images) ? images : [],
-      estimatedWeight: Number(estimatedWeight),
+      estimatedWeight: parsedWeight,
       weightUnit: weightUnit && ['kg', 'ton', 'g', 'items'].includes(weightUnit) ? weightUnit : 'kg',
+      expectedPrice: parsedPrice,
       location: {
         state: state.trim(),
         district: district.trim(),
@@ -150,7 +172,7 @@ const createScrap = async (req, res) => {
         latitude: latitude ? Number(latitude) : null,
         longitude: longitude ? Number(longitude) : null,
       },
-      status: 'available',
+      status: listingStatus,
     });
 
     const populatedScrap = await Scrap.findById(scrap._id).populate(
@@ -158,25 +180,31 @@ const createScrap = async (req, res) => {
       'name email mobileNumber profileImage'
     );
 
-    // Run location matching algorithm to find eligible buyers for this location
-    const matchingBuyers = await findMatchingBuyersForLocation(populatedScrap.location);
+    let matchingBuyerCount = 0;
 
-    console.log(
-      `📍 [Location Matching] Found ${matchingBuyers.length} matching buyer(s) for Scrap ID: ${scrap._id} in ${populatedScrap.location.city}, ${populatedScrap.location.district}`
-    );
+    // Trigger notifications only if listing status is 'available' (do not notify for draft listings)
+    if (listingStatus === 'available') {
+      const matchingBuyers = await findMatchingBuyersForLocation(populatedScrap.location);
+      matchingBuyerCount = matchingBuyers.length;
 
-    // Create notifications for matching buyers safely
-    try {
-      await notificationService.createScrapNotificationsForMatchingBuyers(populatedScrap);
-    } catch (notifErr) {
-      console.error('⚠️ [Notification System] Failed to dispatch notifications:', notifErr.message);
+      console.log(
+        `📍 [Location Matching] Found ${matchingBuyerCount} matching buyer(s) for Scrap ID: ${scrap._id} in ${populatedScrap.location.city}, ${populatedScrap.location.district}`
+      );
+
+      try {
+        await notificationService.createScrapNotificationsForMatchingBuyers(populatedScrap);
+      } catch (notifErr) {
+        console.error('⚠️ [Notification System] Failed to dispatch notifications:', notifErr.message);
+      }
+    } else {
+      console.log(`📝 [Draft Scrap] Scrap ID: ${scrap._id} saved as draft. Location matching notifications skipped.`);
     }
 
     res.status(201).json({
       success: true,
-      message: 'Scrap listing published successfully',
+      message: listingStatus === 'draft' ? 'Scrap listing saved as draft' : 'Scrap listing published successfully',
       scrap: populatedScrap,
-      matchingBuyerCount: matchingBuyers.length,
+      matchingBuyerCount,
     });
   } catch (error) {
     console.error('Create scrap error:', error.message);
@@ -188,20 +216,54 @@ const createScrap = async (req, res) => {
 };
 
 /**
- * @desc   Get all scrap listings posted by the logged-in seller
+ * @desc   Get all scrap listings posted by the logged-in seller with stats summary
  * @route  GET /api/scraps/my-listings
  * @access Private (Seller only)
  */
 const getMyScrapListings = async (req, res) => {
   try {
-    const scraps = await Scrap.find({ seller: req.user._id })
-      .sort({ createdAt: -1 })
-      .populate('seller', 'name email mobileNumber');
+    const { status, search, category } = req.query;
+
+    const query = { seller: req.user._id };
+
+    if (status && status !== 'all') {
+      query.status = status.trim();
+    } else {
+      // Exclude soft-removed items by default unless explicitly asked for
+      query.status = { $ne: 'removed' };
+    }
+
+    if (search && search.trim()) {
+      const searchRegex = new RegExp(escapeRegex(search.trim()), 'i');
+      query.$or = [
+        { title: searchRegex },
+        { category: searchRegex },
+        { description: searchRegex },
+      ];
+    }
+
+    if (category && category.trim() && category.trim() !== 'All Categories') {
+      query.category = new RegExp(`^${escapeRegex(category.trim())}$`, 'i');
+    }
+
+    const [scraps, allSellerScraps] = await Promise.all([
+      Scrap.find(query).sort({ createdAt: -1 }).populate('seller', 'name email mobileNumber'),
+      Scrap.find({ seller: req.user._id, status: { $ne: 'removed' } }),
+    ]);
+
+    const stats = {
+      totalCount: allSellerScraps.length,
+      availableCount: allSellerScraps.filter((s) => s.status === 'available').length,
+      reservedCount: allSellerScraps.filter((s) => s.status === 'reserved').length,
+      soldCount: allSellerScraps.filter((s) => s.status === 'sold').length,
+      draftCount: allSellerScraps.filter((s) => s.status === 'draft').length,
+    };
 
     res.status(200).json({
       success: true,
       count: scraps.length,
       scraps,
+      stats,
     });
   } catch (error) {
     console.error('Get my listings error:', error.message);
@@ -233,7 +295,7 @@ const getScrapById = async (req, res) => {
       'name email mobileNumber profileImage location'
     );
 
-    if (!scrap) {
+    if (!scrap || scrap.status === 'removed') {
       return res.status(404).json({
         success: false,
         message: 'Scrap listing not found',
@@ -255,7 +317,7 @@ const getScrapById = async (req, res) => {
 
 /**
  * @desc   Update a scrap listing (Owner seller only)
- * @route  PUT /api/scraps/:id
+ * @route  PUT / PATCH /api/scraps/:id
  * @access Private (Seller owner only)
  */
 const updateScrap = async (req, res) => {
@@ -271,14 +333,14 @@ const updateScrap = async (req, res) => {
 
     const scrap = await Scrap.findById(id);
 
-    if (!scrap) {
+    if (!scrap || scrap.status === 'removed') {
       return res.status(404).json({
         success: false,
         message: 'Scrap listing not found',
       });
     }
 
-    // Security check: Only the seller who owns the listing can update it
+    // Security check: Only owner seller can update
     if (scrap.seller.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
@@ -293,21 +355,55 @@ const updateScrap = async (req, res) => {
       images,
       estimatedWeight,
       weightUnit,
+      expectedPrice,
       location,
       status,
     } = req.body;
+
+    // Business Guardrails: If status is reserved or sold, restrict modifying core transaction terms
+    if (['reserved', 'sold'].includes(scrap.status)) {
+      const isTryingToEditRestrictedFields =
+        (category !== undefined && category !== scrap.category) ||
+        (estimatedWeight !== undefined && Number(estimatedWeight) !== scrap.estimatedWeight) ||
+        (expectedPrice !== undefined && Number(expectedPrice) !== scrap.expectedPrice) ||
+        (location !== undefined && typeof location === 'object');
+
+      if (isTryingToEditRestrictedFields) {
+        return res.status(400).json({
+          success: false,
+          message: `Cannot edit category, weight, price, or location of a ${scrap.status} listing`,
+        });
+      }
+    }
+
+    const wasDraft = scrap.status === 'draft';
 
     if (title !== undefined) scrap.title = title.trim();
     if (category !== undefined && scrapCategories.includes(category)) scrap.category = category;
     if (description !== undefined) scrap.description = description.trim();
     if (images !== undefined && Array.isArray(images)) scrap.images = images;
-    if (estimatedWeight !== undefined && !isNaN(estimatedWeight) && Number(estimatedWeight) > 0) {
-      scrap.estimatedWeight = Number(estimatedWeight);
+
+    if (estimatedWeight !== undefined) {
+      if (estimatedWeight === null || estimatedWeight === '') {
+        scrap.estimatedWeight = null;
+      } else if (!isNaN(estimatedWeight) && Number(estimatedWeight) >= 0) {
+        scrap.estimatedWeight = Number(estimatedWeight);
+      }
     }
+
     if (weightUnit !== undefined && ['kg', 'ton', 'g', 'items'].includes(weightUnit)) {
       scrap.weightUnit = weightUnit;
     }
-    if (status !== undefined && ['available', 'reserved', 'sold'].includes(status)) {
+
+    if (expectedPrice !== undefined) {
+      if (expectedPrice === null || expectedPrice === '') {
+        scrap.expectedPrice = null;
+      } else if (!isNaN(expectedPrice) && Number(expectedPrice) >= 0) {
+        scrap.expectedPrice = Number(expectedPrice);
+      }
+    }
+
+    if (status !== undefined && ['draft', 'available', 'reserved', 'sold', 'removed'].includes(status)) {
       scrap.status = status;
     }
 
@@ -331,6 +427,15 @@ const updateScrap = async (req, res) => {
       'name email mobileNumber'
     );
 
+    // If publishing a listing from draft to available, send notifications to matching buyers
+    if (wasDraft && updatedScrap.status === 'available') {
+      try {
+        await notificationService.createScrapNotificationsForMatchingBuyers(updatedScrap);
+      } catch (notifErr) {
+        console.error('⚠️ [Notification System] Failed to dispatch notifications on draft publish:', notifErr.message);
+      }
+    }
+
     res.status(200).json({
       success: true,
       message: 'Scrap listing updated successfully',
@@ -346,7 +451,7 @@ const updateScrap = async (req, res) => {
 };
 
 /**
- * @desc   Delete a scrap listing (Owner seller only)
+ * @desc   Remove a scrap listing (Soft delete: status = 'removed')
  * @route  DELETE /api/scraps/:id
  * @access Private (Seller owner only)
  */
@@ -363,32 +468,34 @@ const deleteScrap = async (req, res) => {
 
     const scrap = await Scrap.findById(id);
 
-    if (!scrap) {
+    if (!scrap || scrap.status === 'removed') {
       return res.status(404).json({
         success: false,
         message: 'Scrap listing not found',
       });
     }
 
-    // Security check: Only the owner seller can delete
+    // Security check: Only owner seller can remove
     if (scrap.seller.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
-        message: 'You are not authorized to delete this scrap listing',
+        message: 'You are not authorized to remove this scrap listing',
       });
     }
 
-    await Scrap.findByIdAndDelete(id);
+    // Soft delete: mark status as removed
+    scrap.status = 'removed';
+    await scrap.save();
 
     res.status(200).json({
       success: true,
-      message: 'Scrap listing deleted successfully',
+      message: 'Scrap listing removed successfully',
     });
   } catch (error) {
     console.error('Delete scrap error:', error.message);
     res.status(500).json({
       success: false,
-      message: error.message || 'Server error deleting scrap listing',
+      message: error.message || 'Server error removing scrap listing',
     });
   }
 };
