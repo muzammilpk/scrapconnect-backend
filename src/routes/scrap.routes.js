@@ -18,8 +18,9 @@ const router = express.Router();
 // All scrap endpoints require authentication
 router.use(protect);
 
-// Marketplace query endpoint (GET /api/scraps)
+// Marketplace query endpoint (GET /api/scraps & /api/scraps/marketplace)
 router.get('/', getAllScraps);
+router.get('/marketplace', getAllScraps);
 
 // Seller-only endpoints
 router.post('/upload', authorize('seller'), checkNotSuspended, upload.array('images', 5), uploadImages);

@@ -39,10 +39,10 @@ const registerUser = async (req, res) => {
     }
 
     // 3. Validation: Role check
-    if (!['buyer', 'seller'].includes(role.toLowerCase())) {
+    if (!['buyer', 'seller', 'admin'].includes(role.toLowerCase())) {
       return res.status(400).json({
         success: false,
-        message: 'Role must be either buyer or seller',
+        message: 'Role must be buyer, seller, or admin',
       });
     }
 

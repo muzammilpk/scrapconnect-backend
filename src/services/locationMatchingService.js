@@ -59,8 +59,9 @@ const evaluateRegionMatch = (scrapLoc, region) => {
     };
   }
 
-  // 3. Exact Area & City Match
-  if (rArea && sArea && rArea === sArea && sCity === rCity) {
+  // 3. Area & City Match
+  const isAreaMatch = rArea && sArea && (rArea === sArea || sArea.includes(rArea) || rArea.includes(sArea));
+  if (isAreaMatch && sCity === rCity) {
     return {
       score: 80,
       matchReason: 'Area & City Match',
@@ -76,8 +77,8 @@ const evaluateRegionMatch = (scrapLoc, region) => {
 
   // 4. City-level Match (If buyer did not specify a restrictive area/pincode or if city matches)
   if (sCity === rCity) {
-    // If the buyer explicitly specified an area that doesn't match the scrap area, ignore
-    if (rArea && sArea && rArea !== sArea) {
+    // If the buyer explicitly specified a conflicting area that doesn't match the scrap area, ignore
+    if (rArea && sArea && !sArea.includes(rArea) && !rArea.includes(sArea)) {
       return null;
     }
     // If buyer explicitly specified a pincode that doesn't match scrap pincode, ignore
@@ -145,7 +146,6 @@ const findMatchingBuyersForLocation = async (location) => {
     {
       'serviceRegions.state': stateRegex,
       'serviceRegions.district': districtRegex,
-      'serviceRegions.city': cityRegex,
     },
   ];
 
