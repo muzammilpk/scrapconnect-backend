@@ -22,16 +22,21 @@ app.use((req, res, next) => {
 
 // Configured Restricted CORS
 const allowedOrigins = [
-  config.clientUrl || 'http://localhost:5173',
+  config.clientUrl,
   'http://localhost:5173',
   'http://127.0.0.1:5173',
-];
+  'http://localhost:3000',
+]
+  .filter(Boolean)
+  .map((url) => url.replace(/\/$/, ''));
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps, curl, postman) in non-production
-      if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
+      // Allow requests with no origin (like mobile apps, curl, postman) or matching origins
+      if (!origin) return callback(null, true);
+      const cleanOrigin = origin.replace(/\/$/, '');
+      if (allowedOrigins.includes(cleanOrigin) || process.env.NODE_ENV !== 'production') {
         return callback(null, true);
       }
       return callback(new Error('CORS Policy violation: Origin not allowed'));

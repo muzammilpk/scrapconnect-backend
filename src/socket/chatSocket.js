@@ -25,10 +25,27 @@ const onlineUsers = new Map(); // userId -> socketId
  * @returns {Object} Socket.IO server instance
  */
 const initSocketServer = (httpServer) => {
+  const allowedOrigins = [
+    config.clientUrl,
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://localhost:3000',
+  ]
+    .filter(Boolean)
+    .map((url) => url.replace(/\/$/, ''));
+
   const io = new Server(httpServer, {
     cors: {
-      origin: '*',
+      origin: (origin, callback) => {
+        if (!origin) return callback(null, true);
+        const cleanOrigin = origin.replace(/\/$/, '');
+        if (allowedOrigins.includes(cleanOrigin) || process.env.NODE_ENV !== 'production') {
+          return callback(null, true);
+        }
+        return callback(null, true);
+      },
       methods: ['GET', 'POST'],
+      credentials: true,
     },
   });
 
